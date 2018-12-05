@@ -1,10 +1,4 @@
-from __future__ import division
 import numpy as np
-import os
-import sys
-from datetime import datetime
-from PIL import Image
-import vis
 import shutil
 from pathlib import Path
 import pdb

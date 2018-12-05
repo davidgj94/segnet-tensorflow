@@ -1,14 +1,14 @@
 import tensorflow as tf
 FLAGS = tf.app.flags.FLAGS
 import pickle
-from .layers import unpool_with_argmax, conv_classifier, conv_layer_with_bn, conv_layer_with_bn_caffe
+from layers import unpool_with_argmax, conv_classifier, conv_layer_with_bn_caffe
 
 def get_caffe_weights():
-    with open('caffe_weights.pickle', 'rb') as handle:
+    with open('../caffe_weights.pickle', 'rb') as handle:
         caffe_weights = pickle.load(handle)
     return caffe_weights
 
-def segnet_extended(images, is_training):
+def segnet_extended(images, is_training=False):
 
     caffe_weights = get_caffe_weights()
     img_d = images.get_shape().as_list()[3]
@@ -39,27 +39,27 @@ def segnet_extended(images, is_training):
 
     """ Start decoder """
     unpool_5 = unpool_with_argmax(pool5, ind=pool5_indices, name="unpool_5")
-    conv_decode5_3 = conv_layer_with_bn_caffe(caffe_weights, unpool_5, [3, 3, 512, 512], is_training, False, name="conv5_3_D")
-    conv_decode5_2 = conv_layer_with_bn_caffe(caffe_weights, conv_decode5_3, [3, 3, 512, 512], is_training, False, name="conv5_2_D")
-    conv_decode5_1 = conv_layer_with_bn_caffe(caffe_weights, conv_decode5_2, [3, 3, 512, 512], is_training, False, name="conv5_1_D")
+    conv_decode5_3 = conv_layer_with_bn_caffe(caffe_weights, unpool_5, [3, 3, 512, 512], is_training, name="conv5_3_D")
+    conv_decode5_2 = conv_layer_with_bn_caffe(caffe_weights, conv_decode5_3, [3, 3, 512, 512], is_training, name="conv5_2_D")
+    conv_decode5_1 = conv_layer_with_bn_caffe(caffe_weights, conv_decode5_2, [3, 3, 512, 512], is_training, name="conv5_1_D")
 
     unpool_4 = unpool_with_argmax(conv_decode5_1, ind=pool4_indices, name="unpool_4")
-    conv_decode4_3 = conv_layer_with_bn_caffe(caffe_weights, unpool_4, [3, 3, 512, 512], is_training, False, name="conv4_3_D")
-    conv_decode4_2 = conv_layer_with_bn_caffe(caffe_weights, conv_decode4_3, [3, 3, 512, 512], is_training, False, name="conv4_2_D")
-    conv_decode4_1 = conv_layer_with_bn_caffe(caffe_weights, conv_decode4_2, [3, 3, 512, 256], is_training, False, name="conv4_1_D")
+    conv_decode4_3 = conv_layer_with_bn_caffe(caffe_weights, unpool_4, [3, 3, 512, 512], is_training, name="conv4_3_D")
+    conv_decode4_2 = conv_layer_with_bn_caffe(caffe_weights, conv_decode4_3, [3, 3, 512, 512], is_training, name="conv4_2_D")
+    conv_decode4_1 = conv_layer_with_bn_caffe(caffe_weights, conv_decode4_2, [3, 3, 512, 256], is_training, name="conv4_1_D")
 
     unpool_3 = unpool_with_argmax(conv_decode4_1, ind=pool3_indices, name="unpool_3")
-    conv_decode3_3 = conv_layer_with_bn_caffe(caffe_weights, unpool_3, [3, 3, 256, 256], is_training, False, name="conv3_3_D")
-    conv_decode3_2 = conv_layer_with_bn_caffe(caffe_weights, conv_decode3_3, [3, 3, 256, 256], is_training, False, name="conv3_2_D")
-    conv_decode3_1 = conv_layer_with_bn_caffe(caffe_weights, conv_decode3_2, [3, 3, 256, 128], is_training, False, name="conv3_1_D")
+    conv_decode3_3 = conv_layer_with_bn_caffe(caffe_weights, unpool_3, [3, 3, 256, 256], is_training, name="conv3_3_D")
+    conv_decode3_2 = conv_layer_with_bn_caffe(caffe_weights, conv_decode3_3, [3, 3, 256, 256], is_training, name="conv3_2_D")
+    conv_decode3_1 = conv_layer_with_bn_caffe(caffe_weights, conv_decode3_2, [3, 3, 256, 128], is_training, name="conv3_1_D")
 
     unpool_2 = unpool_with_argmax(conv_decode3_1, ind=pool2_indices, name="unpool_2")
-    conv_decode2_2 = conv_layer_with_bn_caffe(caffe_weights, unpool_2, [3, 3, 128, 128], is_training, False, name="conv2_2_D")
-    conv_decode2_1 = conv_layer_with_bn_caffe(caffe_weights, conv_decode2_2, [3, 3, 128, 64], is_training, False, name="conv2_1_D")
+    conv_decode2_2 = conv_layer_with_bn_caffe(caffe_weights, unpool_2, [3, 3, 128, 128], is_training, name="conv2_2_D")
+    conv_decode2_1 = conv_layer_with_bn_caffe(caffe_weights, conv_decode2_2, [3, 3, 128, 64], is_training, name="conv2_1_D")
 
     unpool_1 = unpool_with_argmax(conv_decode2_1, ind=pool1_indices, name="unpool_1")
-    conv_decode1_2 = conv_layer_with_bn_caffe(caffe_weights, unpool_1, [3, 3, 64, 64], is_training, False, name="conv1_2_D")
-    logits = conv_classifier(caffe_weights, conv_decode1_2, name="conv1_1_D")
+    conv_decode1_2 = conv_layer_with_bn_caffe(caffe_weights, unpool_1, [3, 3, 64, 64], is_training, name="conv1_2_D")
+    logits = conv_classifier(caffe_weights, conv_decode1_2, name="conv1_1_D_roads")
     """ End of decoder """
         
     return logits

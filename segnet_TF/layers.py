@@ -50,44 +50,51 @@ def conv_classifier(caffe_weights, input_layer, name=None):
 
 
 
-def conv_layer_with_bn_caffe(caffe_weights, inputT, shape, is_training, activation=True, name=None):
+def conv_layer_with_bn_caffe(caffe_weights, inputT, shape, is_training=False, name=None):
 
     with tf.variable_scope(name) as scope:
 
         with tf.device('/cpu:0'):
 
             kernel_np, biases_np = get_conv_weights(caffe_weights, name)
-            kernel = tf.get_variable("weights", initializer=kernel_np)
-            biases = tf.get_variable("biases", initializer=biases_np)
+            # kernel = tf.get_variable("weights", initializer=kernel_np)
+            # biases = tf.get_variable("biases", initializer=biases_np)
+            kernel = tf.constant(kernel_np, name="weights")
+            biases = tf.constant(biases_np, name="biases")
 
-            beta_np, gamma_np, mean_np, variance_np = get_batch_parameters(caffe_weights, name + '_bn')
-            beta = tf.get_variable("beta", initializer=beta_np)
-            gamma = tf.get_variable("gamma", initializer=gamma_np)
-            mean = tf.get_variable("mean", initializer=mean_np)
-            variance = tf.get_variable("variance", initializer=variance_np)
+            beta_np, gamma_np = get_batch_parameters(caffe_weights, name)
+            beta_np = beta_np.reshape((1,1,1,shape[-1]))
+            gamma_np = gamma_np.reshape((1,1,1,shape[-1]))
+            # beta = tf.get_variable("beta", initializer=beta_np)
+            # gamma = tf.get_variable("gamma", initializer=gamma_np)
+            # mean = tf.get_variable("mean", initializer=mean_np)
+            # variance = tf.get_variable("variance", initializer=variance_np)
+            beta = tf.constant(beta_np, name="beta")
+            gamma = tf.constant(gamma_np, name="gamma")
+            mean = tf.constant(0.0, name="mean")
+            variance = tf.constant(1.0, name="variance")
 
         #kernel = tf.get_variable(scope.name, shape, initializer=initializer)
         conv = tf.nn.conv2d(inputT, kernel, [1, 1, 1, 1], padding='SAME')
         bias = tf.nn.bias_add(conv, biases)
 
-        if activation is True: #only use relu during encoder
-            conv_out = tf.nn.relu(tf.layers.batch_normalization(bias, training=False, 
-                beta_initializer=beta, 
-                gamma_initializer=gamma, 
-                moving_mean_initializer=mean,
-                moving_variance_initializer=variance))
-        else:
-            conv_out = tf.layers.batch_normalization(bias, training=False, 
-                beta_initializer=beta, 
-                gamma_initializer=gamma, 
-                moving_mean_initializer=mean,
-                moving_variance_initializer=variance)
+
+        conv_out = tf.nn.relu(tf.nn.batch_normalization(bias, 
+                offset=beta, 
+                scale=gamma, 
+                mean=mean,
+                variance=variance,
+                variance_epsilon=tf.constant(1e-9),
+                name=scope.name))
             
     return conv_out
 
 
 def get_batch_parameters(caffe_weights, name):
-    return beta_np, gamma_np, mean_np, variance_np
+    bn_name = name + '_bn'
+    gamma_np = caffe_weights[bn_name][0]
+    beta_np = caffe_weights[bn_name][1]
+    return beta_np, gamma_np
 
 
 def get_conv_weights(caffe_weights, name):
