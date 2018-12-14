@@ -4,7 +4,7 @@ import pickle
 from layers import unpool_with_argmax, conv_classifier, conv_layer_with_bn_caffe
 
 def get_caffe_weights():
-    with open('../caffe_weights.pickle', 'rb') as handle:
+    with open(FLAGS.caffe_weights, 'rb') as handle:
         caffe_weights = pickle.load(handle)
     return caffe_weights
 
