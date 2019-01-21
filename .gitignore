@@ -1,3 +1,7 @@
 *.caffemodel
 *.pickle
 *.pyc
+*.tfrecord
+*.MOV
+*.avi
+*.png
