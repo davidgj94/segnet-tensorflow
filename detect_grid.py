@@ -169,6 +169,46 @@ def fix_lines(lines_v, sz):
 
     return new_lines_v
 
+def filter_lines(lines, line_type):
+
+    similar_lines = {i : [] for i in range(len(lines))}
+    for i in range(len(lines)):
+        for j in range(len(lines)):
+            if i == j:
+                continue
+
+            rho_i,theta_i = lines[i][0]
+            rho_j,theta_j = lines[j][0]
+            diff_rho = abs(rho_i - rho_j)
+            if line_type == "vertical":
+                diff_theta
+            else:
+
+            diff_theta = abs(theta_i - theta_j)
+            if diff_rho < rho_threshold and min(diff_theta, 2*np.pi - diff_theta) < theta_threshold:
+                similar_lines[i].append(j)
+
+    # ordering the INDECES of the lines by how many are similar to them
+    indices = [i for i in range(len(lines))]
+    indices.sort(key=lambda x : len(similar_lines[x]))
+
+    # line flags is the base for the filtering
+    line_flags = len(lines)*[True]
+    for i in range(len(lines) - 1):
+        if not line_flags[indices[i]]: # if we already disregarded the ith element in the ordered list then we don't care (we will not delete anything based on it and we will never reconsider using this line again)
+            continue
+
+        for j in range(i + 1, len(lines)): # we are only considering those elements that had less similar line
+            if not line_flags[indices[j]]: # and only if we have not disregarded them already
+                continue
+
+            rho_i,theta_i = lines[indices[i]][0]
+            rho_j,theta_j = lines[indices[j]][0]
+            diff_rho = abs(rho_i - rho_j)
+            diff_theta = abs(theta_i - theta_j)
+            if diff_rho < rho_threshold and min(diff_theta, 2*np.pi - diff_theta) < theta_threshold:
+                line_flags[indices[j]] = False # if it is similar and have not been disregarded yet then drop it now
+
 
 #file_path = '009-APR-20-2-90/masks/frame_60.png'
 # file_path_mask = '009-APR-20-2-90/masks/frame_116.png'
@@ -216,21 +256,47 @@ blob = cv2.erode(blob, kernel, iterations=2)
 # plt.imshow(blob == 255)
 # plt.show()
 
-#lines = cv2.HoughLines(blob,1,np.pi/180,500)
-lines = []
-for line in cv2.HoughLines(blob,1,np.pi/180, 250):
-    rho, theta = line[0]
-    if rho < 0:
-        print rho
-        print math.degrees(theta)
-        new_rho = -1 * rho
-        new_theta = theta + np.pi
-        lines.append([[new_rho, new_theta]])
-    else:
-        lines.append(line)
+lines = cv2.HoughLines(blob,1,np.pi/180, 250)
+lines_h = []
+lines_v = []
+for line in lines:
 
-pdb.set_trace()
-lines = np.array(lines)
+    rho,theta = line[0]
+
+    if rho < 0:
+        rho = -1 * rho
+        theta += np.pi
+
+    theta_degrees = math.degrees(theta)
+
+    if (80.0 <= theta_degrees <= 90) or (270 <= theta_degrees <= 280):
+        lines_h.append((rho, theta))
+
+    elif (0.0 <= theta_degrees <= 10.0) or (350.0 <= theta_degrees <= 360.0):
+        lines_v.append((rho, theta))
+
+rho_threshold = 50
+theta_threshold = math.radians(10)
+
+similar_lines = {i : [] for i in range(len(lines))}
+for line_v in lines_v:
+
+for line_h in lines_h:
+
+# lines = []
+# for line in cv2.HoughLines(blob,1,np.pi/180, 250):
+#     rho, theta = line[0]
+#     if rho < 0:
+#         print rho
+#         print math.degrees(theta)
+#         new_rho = -1 * rho
+#         new_theta = theta + np.pi
+#         lines.append([[new_rho, new_theta]])
+#     else:
+#         lines.append(line)
+
+# pdb.set_trace()
+# lines = np.array(lines)
 
 if not lines.any():
     print('No lines were found')
