@@ -32,7 +32,7 @@ def dist_parallel_lines(line1, line2):
 
     a, b, _ = general_form(rho1, theta1)
 
-    dist = abs(abs(rho1)-abs(rho2)) / math.sqrt(a ** 2 + b ** 2)
+    dist = abs(rho1-rho2) / math.sqrt(a ** 2 + b ** 2)
 
     return dist
 
@@ -108,10 +108,73 @@ def find_intesect_borders(line_coeffs, sz):
 
 filter = True
 
+def fix_lines(lines_v, sz):
+
+    checked_lines = [False] * len(lines_v)
+    new_lines_v = []
+
+    for i in range(len(lines_v)):
+
+        if checked_lines[i]:
+            continue
+
+        print lines_v[i]
+        print math.degrees(lines_v[i][1])
+        print
+        line_coeffs_i = general_form(*lines_v[i])
+        checked_lines[i] = True
+
+        intersection = False
+        for j in range(len(lines_v)):
+
+            if (i != j) and not checked_lines[j]:
+
+                line_coeffs_j = general_form(*lines_v[j])
+                intersection_point = find_intersect(line_coeffs_i, line_coeffs_j)
+
+                if check_intersect(intersection_point, sz):
+
+                    print "inter"
+                    print lines_v[j]
+                    print math.degrees(lines_v[j][1])
+                    print
+
+                    # print intersection_point
+
+                    checked_lines[j] = True
+                    intersection = True
+                    theta1 = math.degrees(lines_v[i][1])
+                    theta2 = math.degrees(lines_v[j][1])
+                        
+                    # if (170.0 <= theta1 <= 180.0):
+                    #     theta1 = 180 - theta1
+                    # if (170.0 <= theta2 <= 180.0):
+                    #     theta2 = 180 - theta2
+
+                    new_theta = (theta1 + theta2) / 2
+                    # print (theta1, theta2)
+                    # print (lines_v[i][0], lines_v[j][0])
+
+                    if new_theta < 0:
+                        new_theta = new_theta + 180
+
+                    # print new_theta
+
+                    new_line_coeffs = get_line_coeffs(intersection_point, math.radians(new_theta))
+                    # print normal_form(*new_line_coeffs)
+                    new_lines_v.append(normal_form(*new_line_coeffs))
+
+        if not intersection:
+            new_lines_v.append(lines_v[i])
+
+    return new_lines_v
+
 
 #file_path = '009-APR-20-2-90/masks/frame_60.png'
-file_path_mask = '009-APR-20-2-90/masks/frame_116.png'
-file_path_img = '009-APR-20-2-90/imgs/frame_116.png'
+# file_path_mask = '009-APR-20-2-90/masks/frame_116.png'
+# file_path_img = '009-APR-20-2-90/imgs/frame_116.png'
+file_path_mask = '009-APR-20-2-90/masks/frame_2.png'
+file_path_img = '009-APR-20-2-90/imgs/frame_2.png'
 edges_ = cv2.imread(file_path_mask)
 image = cv2.imread(file_path_img)
 edges = edges_[...,0]
@@ -154,7 +217,20 @@ blob = cv2.erode(blob, kernel, iterations=2)
 # plt.show()
 
 #lines = cv2.HoughLines(blob,1,np.pi/180,500)
-lines = cv2.HoughLines(blob,1,np.pi/180, 350)
+lines = []
+for line in cv2.HoughLines(blob,1,np.pi/180, 250):
+    rho, theta = line[0]
+    if rho < 0:
+        print rho
+        print math.degrees(theta)
+        new_rho = -1 * rho
+        new_theta = theta + np.pi
+        lines.append([[new_rho, new_theta]])
+    else:
+        lines.append(line)
+
+pdb.set_trace()
+lines = np.array(lines)
 
 if not lines.any():
     print('No lines were found')
@@ -173,7 +249,9 @@ if filter:
 
             rho_i,theta_i = lines[i][0]
             rho_j,theta_j = lines[j][0]
-            if abs(rho_i - rho_j) < rho_threshold and abs(theta_i - theta_j) < theta_threshold:
+            diff_rho = abs(rho_i - rho_j)
+            diff_theta = abs(theta_i - theta_j)
+            if diff_rho < rho_threshold and min(diff_theta, 2*np.pi - diff_theta) < theta_threshold:
                 similar_lines[i].append(j)
 
     # ordering the INDECES of the lines by how many are similar to them
@@ -192,7 +270,9 @@ if filter:
 
             rho_i,theta_i = lines[indices[i]][0]
             rho_j,theta_j = lines[indices[j]][0]
-            if abs(rho_i - rho_j) < rho_threshold and abs(theta_i - theta_j) < theta_threshold:
+            diff_rho = abs(rho_i - rho_j)
+            diff_theta = abs(theta_i - theta_j)
+            if diff_rho < rho_threshold and min(diff_theta, 2*np.pi - diff_theta) < theta_threshold:
                 line_flags[indices[j]] = False # if it is similar and have not been disregarded yet then drop it now
 
 print('number of Hough lines:', len(lines))
@@ -219,6 +299,7 @@ for line in filtered_lines:
     rho,theta = line[0]
 
     theta_degrees = math.degrees(theta)
+    theta_degrees = min(theta_degrees, 360.0 - theta_degrees)
     print theta_degrees
     if (80.0 <= theta_degrees <= 100.0):
         lines_h.append((rho, theta))
@@ -234,7 +315,7 @@ for line in filtered_lines:
         y2 = int(y0 - 1000*(a))
         cv2.line(line_aux,(x1,y1),(x2,y2),(0,0,255),2)
 
-    elif (0.0 <= theta_degrees <= 10.0) or (170.0 <= theta_degrees <= 180.0):
+    elif (0.0 <= theta_degrees <= 10.0):
         lines_v.append((rho, theta))
         thetas_v.append(theta_degrees)
 
@@ -256,11 +337,17 @@ plt.figure()
 plt.imshow(vis_img2)
 plt.show()
 
-lines_h_sorted = sorted(lines_h, key= lambda x: abs(x[0]))
-line_aux_ = np.zeros(edges_.shape, dtype=np.uint8)
-for line in lines_h_sorted:
+pdb.set_trace()
 
-    rho, theta = line
+
+new_lines_h = fix_lines(lines_h, edges.shape)
+all_lines_mask = np.zeros(edges_.shape, dtype=np.uint8)
+for line in new_lines_h:
+
+    rho,theta = line
+
+    print find_intesect_borders(general_form(*line), edges.shape)
+
     a = np.cos(theta)
     b = np.sin(theta)
     x0 = a*rho
@@ -269,20 +356,48 @@ for line in lines_h_sorted:
     y1 = int(y0 + 1000*(a))
     x2 = int(x0 - 1000*(-b))
     y2 = int(y0 - 1000*(a))
-    cv2.line(line_aux_,(x1,y1),(x2,y2),(0,0,255),2)
+    print (x1,y1)
+    print (x2,y2)
+    cv2.line(all_lines_mask,(x1,y1),(x2,y2),(0,0,255),2)
 
-    grid2 = np.zeros(edges.shape, dtype=np.uint8)
-    grid2[line_aux_[...,-1] == 255] = 1
-    vis_img2 = vis.vis_seg(np.squeeze(image[...,::-1]), grid2, palette)
-    plt.figure()
-    plt.imshow(vis_img2)
-    plt.show()
+grid_all = np.zeros(edges.shape, dtype=np.uint8)
+grid_all[all_lines_mask[...,-1] == 255] = 1
+
+vis_img_all = vis.vis_seg(np.squeeze(image[...,::-1]), grid_all, palette)
+plt.figure()
+plt.imshow(vis_img_all)
+plt.show()
 
 
 
-lines_v_sorted = sorted(lines_v, key= lambda x: abs(x[0]))
-print lines_v_sorted
-lines_v_dist = []
+lines_h_sorted = sorted(lines_h, key= lambda x: x[0])
+# line_aux_ = np.zeros(edges_.shape, dtype=np.uint8)
+# for line in lines_h_sorted:
+
+#     rho, theta = line
+#     a = np.cos(theta)
+#     b = np.sin(theta)
+#     x0 = a*rho
+#     y0 = b*rho
+#     x1 = int(x0 + 1000*(-b))
+#     y1 = int(y0 + 1000*(a))
+#     x2 = int(x0 - 1000*(-b))
+#     y2 = int(y0 - 1000*(a))
+#     cv2.line(line_aux_,(x1,y1),(x2,y2),(0,0,255),2)
+
+#     grid2 = np.zeros(edges.shape, dtype=np.uint8)
+#     grid2[line_aux_[...,-1] == 255] = 1
+#     vis_img2 = vis.vis_seg(np.squeeze(image[...,::-1]), grid2, palette)
+#     plt.figure()
+#     plt.imshow(vis_img2)
+#     plt.show()
+
+
+
+lines_v_sorted = sorted(lines_v, key= lambda x: x[0])
+
+
+
 for i in range(len(lines_v_sorted)-1):
 
     line1 = lines_v_sorted[i]
@@ -318,10 +433,12 @@ for i in range(len(lines_v_sorted)-1):
         num_parallel_1 = num_inter_lines / 2 + num_inter_lines % 2
         num_parallel_2 = num_inter_lines / 2 
 
-        if line1[0] > 0:
-            d = -D
-        else:
-            d = D
+        # if line1[0] > 0:
+        #     d = -D
+        # else:
+        #     d = D
+
+        d = -D
 
         for _ in range(num_parallel_1):
             rho, theta = get_parallel_line(line1, d)
@@ -340,15 +457,17 @@ for i in range(len(lines_v_sorted)-1):
             plt.figure()
             plt.imshow(vis_img2)
             plt.show()
-            if line1[0] > 0:
-                d -= D
-            else:
-                d += D
+            d -= D
+            # if line1[0] > 0:
+            #     d -= D
+            # else:
+            #     d += D
 
-        if line2[0] > 0:
-            d = D
-        else:
-            d = -D
+        # if line2[0] > 0:
+        #     d = D
+        # else:
+        #     d = -D
+        d = D
 
         for _ in range(num_parallel_2):
             rho, theta = get_parallel_line(line2, d)
@@ -367,10 +486,11 @@ for i in range(len(lines_v_sorted)-1):
             plt.figure()
             plt.imshow(vis_img2)
             plt.show()
-            if line2[0] > 0:
-                d += D
-            else:
-                d -= D
+            d += D
+            # if line2[0] > 0:
+            #     d += D
+            # else:
+            #     d -= D
 
 
 
@@ -389,10 +509,12 @@ y2 = int(y0 - 1000*(a))
 cv2.line(line_aux,(x1,y1),(x2,y2),(0,0,255),2)
 
     
-if lines_v_sorted[0] > 0:
-    d = -150
-else:
-    d = +150
+# if lines_v_sorted[0] > 0:
+#     d = -150
+# else:
+#     d = +150
+
+d = 150
 
 rho, theta = get_parallel_line(lines_v_sorted[0], d)
 
@@ -408,10 +530,12 @@ if find_intesect_borders(general_form(rho, theta), edges.shape):
     cv2.line(line_aux,(x1,y1),(x2,y2),(0,0,255),2)
 
 
-if lines_v_sorted[-1] > 0:
-    d = -150
-else:
-    d = +150
+# if lines_v_sorted[-1] > 0:
+#     d = -150
+# else:
+#     d = +150
+
+d = -150
 
 rho, theta = get_parallel_line(lines_v_sorted[-1], d)
 
